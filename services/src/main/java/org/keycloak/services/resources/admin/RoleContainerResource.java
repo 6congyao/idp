@@ -417,6 +417,29 @@ public class RoleContainerResource extends RoleResource {
         return session.users().getRoleMembersStream(realm, role, firstResult, maxResults)
                 .map(user -> ModelToRepresentation.toRepresentation(session, realm, user));
     }
+
+    /**
+     * Returns the count of users that have the specified role name.
+     *
+     *
+     * @param roleName the role name.
+     * @return the number of users in the role.
+     */
+    @Path("{role-name}/users/count")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @NoCache
+    public Integer getUserCountInRole(final @PathParam("role-name") String roleName) {
+        
+        auth.roles().requireView(roleContainer);
+        
+        RoleModel role = roleContainer.getRole(roleName);
+        if (role == null) {
+            throw new NotFoundException("Could not find role");
+        }
+
+        return (int)session.users().getRoleMembersStream(realm, role).count();
+    }
     
     /**
      * Returns a stream of groups that have the specified role name
