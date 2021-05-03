@@ -155,6 +155,7 @@ public class UsersResource {
             UserModel user = session.users().addUser(realm, username);
 
             UserResource.updateUserFromRep(user, rep, session, false);
+            UserResource.updateUserRolesFromRep(user, rep, realm);
             RepresentationToModel.createFederatedIdentities(rep, session, realm, user);
             RepresentationToModel.createGroups(rep, realm, user);
 
