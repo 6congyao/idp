@@ -209,6 +209,15 @@ public class ModelToRepresentation {
             rep.setAttributes(attrs);
         }
 
+        List<RoleModel> roleMappings = user.getRealmRoleMappingsStream().collect(Collectors.toList());
+        if (roleMappings != null) {
+            List<String> realmRoleNames = new ArrayList<>();
+            for (RoleModel role : roleMappings) {
+                realmRoleNames.add(role.getName());
+            }
+            rep.setRealmRoles(realmRoleNames);
+        }
+
         return rep;
     }
 

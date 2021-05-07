@@ -236,8 +236,8 @@ public class UsersResource {
                                                @QueryParam("emailVerified") Boolean emailVerified,
                                                @QueryParam("idpAlias") String idpAlias,
                                                @QueryParam("idpUserId") String idpUserId,
-                                               @QueryParam("first") Integer firstResult,
-                                               @QueryParam("max") Integer maxResults,
+                                               @QueryParam("offset") Integer firstResult,
+                                               @QueryParam("limit") Integer maxResults,
                                                @QueryParam("enabled") Boolean enabled,
                                                @QueryParam("briefRepresentation") Boolean briefRepresentation,
                                                @QueryParam("exact") Boolean exact) {

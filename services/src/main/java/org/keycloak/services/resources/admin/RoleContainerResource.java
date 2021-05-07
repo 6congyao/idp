@@ -402,8 +402,8 @@ public class RoleContainerResource extends RoleResource {
     @Produces(MediaType.APPLICATION_JSON)
     @NoCache
     public Stream<UserRepresentation> getUsersInRole(final @PathParam("role-name") String roleName,
-                                                    @QueryParam("first") Integer firstResult,
-                                                    @QueryParam("max") Integer maxResults) {
+                                                    @QueryParam("offset") Integer firstResult,
+                                                    @QueryParam("limit") Integer maxResults) {
         
         auth.roles().requireView(roleContainer);
         firstResult = firstResult != null ? firstResult : 0;
