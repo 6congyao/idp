@@ -110,10 +110,14 @@ public class RoleContainerResource extends RoleResource {
             roleModels = roleContainer.getRolesStream();
         }
 
-        Function<RoleModel, RoleRepresentation> toRoleRepresentation = briefRepresentation ?
-                ModelToRepresentation::toBriefRepresentation :
-                ModelToRepresentation::toRepresentation;
-        return roleModels.map(toRoleRepresentation);
+        return roleModels.map(role -> {
+            return briefRepresentation ? ModelToRepresentation.toBriefRepresentation(role)
+                    : ModelToRepresentation.toRepresentation(session, realm, role);
+        });
+        // Function<RoleModel, RoleRepresentation> toRoleRepresentation = briefRepresentation ?
+        //         ModelToRepresentation::toBriefRepresentation :
+        //         ModelToRepresentation::toRepresentation;
+        // return roleModels.map(toRoleRepresentation);
     }
 
     /**
@@ -402,6 +406,7 @@ public class RoleContainerResource extends RoleResource {
     @Produces(MediaType.APPLICATION_JSON)
     @NoCache
     public Stream<UserRepresentation> getUsersInRole(final @PathParam("role-name") String roleName,
+                                                    @QueryParam("search") @DefaultValue("") String search,
                                                     @QueryParam("offset") Integer firstResult,
                                                     @QueryParam("limit") Integer maxResults) {
         
@@ -413,7 +418,7 @@ public class RoleContainerResource extends RoleResource {
         if (role == null) {
             throw new NotFoundException("Could not find role");
         }
-
+        
         return session.users().getRoleMembersStream(realm, role, firstResult, maxResults)
                 .map(user -> ModelToRepresentation.toRepresentation(session, realm, user));
     }
