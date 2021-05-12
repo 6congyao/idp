@@ -99,7 +99,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriBuilder;
 import java.net.URI;
 import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -253,6 +252,10 @@ public class UserResource {
     public static void updateUserRolesFromRep(UserModel user, UserRepresentation rep, RealmModel realm) {
         List<String> realmRoles = rep.getRealmRoles();
         if (realmRoles != null) {
+            List<RoleModel> roles = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").toList();
+            for (RoleModel role : roles) {
+                user.deleteRoleMapping(role);
+            }
             for (String roleString : realmRoles) {
                 RoleModel role = realm.getRole(roleString.trim());
                 if (role != null) { 

@@ -23,13 +23,11 @@ import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.Constants;
-import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleContainerModel;
 import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.ManagementPermissionReference;
@@ -54,11 +52,8 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -397,6 +392,7 @@ public class RoleContainerResource extends RoleResource {
      *
      *
      * @param roleName the role name.
+     * @param search   arbitrary search string for the user fields.
      * @param firstResult first result to return. Ignored if negative or {@code null}.
      * @param maxResults maximum number of results to return. Ignored if negative or {@code null}.
      * @return a non-empty {@code Stream} of users.
@@ -417,6 +413,11 @@ public class RoleContainerResource extends RoleResource {
         RoleModel role = roleContainer.getRole(roleName);
         if (role == null) {
             throw new NotFoundException("Could not find role");
+        }
+
+        if(search != null && search.trim().length() > 0) {
+            return session.users().searchForRoleMembersStream(realm, role, search, firstResult, maxResults)
+                .map(user -> ModelToRepresentation.toRepresentation(session, realm, user));
         }
         
         return session.users().getRoleMembersStream(realm, role, firstResult, maxResults)

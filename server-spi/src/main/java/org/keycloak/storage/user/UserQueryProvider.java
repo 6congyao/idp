@@ -436,6 +436,20 @@ public interface UserQueryProvider {
     }
 
     /**
+     * Searches for the matching users that have the specified role.
+     *
+     * @param realm a reference to the realm.
+     * @param role a reference to the role.
+     * @param search   arbitrary search string for the user fields.
+     * @param firstResult first result to return. Ignored if negative.
+     * @param maxResults maximum number of results to return. Ignored if negative.
+     * @return a non-null {@link Stream} of users that have the specified role.
+     */
+    default Stream<UserModel> searchForRoleMembersStream(RealmModel realm, RoleModel role, String search, Integer firstResult, Integer maxResults) {
+        return Stream.empty();
+    }
+
+    /**
      * Search for users that have a specific attribute with a specific value.
      * Implementations do not have to search in UserFederatedStorageProvider
      * as this is done automatically.

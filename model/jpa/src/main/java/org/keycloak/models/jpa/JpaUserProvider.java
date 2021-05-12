@@ -898,7 +898,7 @@ public class JpaUserProvider implements UserProvider.Streams, UserCredentialStor
             predicates.add(builder.exists(subquery));
         }
 
-        queryBuilder.where(predicates.toArray(new Predicate[predicates.size()])).orderBy(builder.asc(root.get(UserModel.USERNAME)));
+        queryBuilder.where(predicates.toArray(new Predicate[predicates.size()])).orderBy(builder.desc(root.get("createdTimestamp")));
 
         TypedQuery<UserEntity> query = em.createQuery(queryBuilder);
 
