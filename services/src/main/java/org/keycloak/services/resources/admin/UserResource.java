@@ -252,7 +252,7 @@ public class UserResource {
     public static void updateUserRolesFromRep(UserModel user, UserRepresentation rep, RealmModel realm) {
         List<String> realmRoles = rep.getRealmRoles();
         if (realmRoles != null) {
-            List<RoleModel> roles = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").toList();
+            List<RoleModel> roles = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").collect(Collectors.toList());
             for (RoleModel role : roles) {
                 user.deleteRoleMapping(role);
             }
