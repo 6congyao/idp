@@ -311,6 +311,17 @@ public class UserStorageManager extends AbstractStorageManager<UserStorageProvid
         return importValidation(realm, results);
     }
 
+    @Override
+    public Stream<UserModel> searchForRoleMembersStream(RealmModel realm, RoleModel role, String search, Integer firstResult, Integer maxResults) {
+        Stream<UserModel> results = query((provider) -> {
+            if (provider instanceof UserQueryProvider) {
+                return ((UserQueryProvider)provider).searchForRoleMembersStream(realm, role, search);
+            }
+            return Stream.empty();
+        }, realm, firstResult, maxResults);
+        return importValidation(realm, results);
+    }
+
 
     @Override
     public Stream<UserModel> getUsersStream(RealmModel realm) {

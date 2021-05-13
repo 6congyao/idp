@@ -102,6 +102,7 @@ import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -252,8 +253,9 @@ public class UserResource {
     public static void updateUserRolesFromRep(UserModel user, UserRepresentation rep, RealmModel realm) {
         List<String> realmRoles = rep.getRealmRoles();
         if (realmRoles != null) {
-            List<RoleModel> roles = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").collect(Collectors.toList());
-            for (RoleModel role : roles) {
+            Iterator<RoleModel> itr = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").iterator();
+            while (itr.hasNext()) {
+                RoleModel role = itr.next();
                 user.deleteRoleMapping(role);
             }
             for (String roleString : realmRoles) {

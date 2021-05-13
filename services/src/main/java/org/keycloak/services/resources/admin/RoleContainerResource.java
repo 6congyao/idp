@@ -429,19 +429,24 @@ public class RoleContainerResource extends RoleResource {
      *
      *
      * @param roleName the role name.
+     * @param search   arbitrary search string for the user fields.
      * @return the number of users in the role.
      */
     @Path("{role-name}/users/count")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @NoCache
-    public Integer getUserCountInRole(final @PathParam("role-name") String roleName) {
+    public Integer getUserCountInRole(final @PathParam("role-name") String roleName, @QueryParam("search") @DefaultValue("") String search) {
         
         auth.roles().requireView(roleContainer);
         
         RoleModel role = roleContainer.getRole(roleName);
         if (role == null) {
             throw new NotFoundException("Could not find role");
+        }
+
+        if(search != null && search.trim().length() > 0) {
+            return (int)session.users().searchForRoleMembersStream(realm, role, search, -1, -1).count();
         }
 
         return (int)session.users().getRoleMembersStream(realm, role).count();

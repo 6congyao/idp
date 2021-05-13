@@ -474,6 +474,11 @@ public class UserCacheSession implements UserCache.Streams {
     }    
 
     @Override
+    public Stream<UserModel> searchForRoleMembersStream(RealmModel realm, RoleModel role, String search, Integer firstResult, Integer maxResults) {
+        return getDelegate().searchForRoleMembersStream(realm, role, search, firstResult, maxResults);
+    }
+
+    @Override
     public UserModel getServiceAccount(ClientModel client) {
         // Just an attempt to find the user from cache by default serviceAccount username
         UserModel user = findServiceAccount(client);

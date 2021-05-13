@@ -509,6 +509,15 @@ public class JpaUserProvider implements UserProvider.Streams, UserCredentialStor
     }
 
     @Override
+    public Stream<UserModel> searchForRoleMembersStream(RealmModel realm, RoleModel role, String search) {
+        TypedQuery<UserEntity> query = em.createNamedQuery("searchForUsersInRole", UserEntity.class);
+        query.setParameter("roleId", role.getId());
+        query.setParameter("search", "%" + search.toLowerCase() + "%");
+
+        return closing(query.getResultStream().map(entity -> new UserAdapter(session, realm, em, entity)));
+    }
+
+    @Override
     public void preRemove(RealmModel realm, GroupModel group) {
         em.createNamedQuery("deleteUserGroupMembershipsByGroup").setParameter("groupId", group.getId()).executeUpdate();
 

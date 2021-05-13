@@ -449,6 +449,9 @@ public interface UserQueryProvider {
         return Stream.empty();
     }
 
+    default Stream<UserModel> searchForRoleMembersStream(RealmModel realm, RoleModel role, String search) {
+        return Stream.empty();
+    }
     /**
      * Search for users that have a specific attribute with a specific value.
      * Implementations do not have to search in UserFederatedStorageProvider
