@@ -200,8 +200,8 @@ public class GroupResource {
      *
      * Returns a stream of users, filtered according to query parameters
      *
-     * @param firstResult Pagination offset
-     * @param maxResults Maximum results size (defaults to 100)
+     * @param offset Pagination offset
+     * @param limit Maximum results size (defaults to 100)
      * @param briefRepresentation Only return basic information (only guaranteed to return id, username, created, first and last name,
      *  email, enabled state, email verification state, federation link, and access.
      *  Note that it means that namely user attributes, required actions, and not before are not returned.)
@@ -211,8 +211,8 @@ public class GroupResource {
     @NoCache
     @Path("members")
     @Produces(MediaType.APPLICATION_JSON)
-    public Stream<UserRepresentation> getMembers(@QueryParam("first") Integer firstResult,
-                                               @QueryParam("max") Integer maxResults,
+    public Stream<UserRepresentation> getMembers(@QueryParam("offset") Integer firstResult,
+                                               @QueryParam("limit") Integer maxResults,
                                                @QueryParam("briefRepresentation") Boolean briefRepresentation) {
         this.auth.groups().requireViewMembers(group);
         

@@ -1796,12 +1796,32 @@ public class RepresentationToModel {
     public static void createGroups(UserRepresentation userRep, RealmModel newRealm, UserModel user) {
         if (userRep.getGroups() != null) {
             for (String path : userRep.getGroups()) {
-                GroupModel group = KeycloakModelUtils.findGroupByPath(newRealm, path);
+                GroupModel group = KeycloakModelUtils.findGroupByPath(newRealm, path.trim());
                 if (group == null) {
                     throw new RuntimeException("Unable to find group specified by path: " + path);
 
                 }
                 user.joinGroup(group);
+            }
+        }
+    }
+
+    public static void updateGroups(UserRepresentation userRep, RealmModel newRealm, UserModel user) {
+        if (userRep.getGroups() != null) {
+            Iterator<GroupModel> itr = user.getGroupsStream().iterator();
+            while (itr.hasNext()) {
+                GroupModel group = itr.next();
+                user.leaveGroup(group);
+            }
+            for (String path : userRep.getGroups()) {
+                GroupModel group = KeycloakModelUtils.findGroupByPath(newRealm, path.trim());
+                // if (group == null) {
+                //     throw new RuntimeException("Unable to find group specified by path: " + path);
+
+                // }
+                if (group != null) {
+                    user.joinGroup(group);
+                }
             }
         }
     }

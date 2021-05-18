@@ -176,6 +176,7 @@ public class UserResource {
             }
             updateUserFromRep(user, rep, session, true);
             updateUserRolesFromRep(user, rep, realm);
+            RepresentationToModel.updateGroups(rep, realm, user);
             RepresentationToModel.createCredentials(rep, session, realm, user, true);
             adminEvent.operation(OperationType.UPDATE).resourcePath(session.getContext().getUri()).representation(rep).success();
 
@@ -257,6 +258,7 @@ public class UserResource {
             while (itr.hasNext()) {
                 RoleModel role = itr.next();
                 user.deleteRoleMapping(role);
+                System.out.println(role.getName());
             }
             for (String roleString : realmRoles) {
                 RoleModel role = realm.getRole(roleString.trim());

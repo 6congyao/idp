@@ -157,7 +157,7 @@ public class UsersResource {
             UserResource.updateUserFromRep(user, rep, session, false);
             UserResource.updateUserRolesFromRep(user, rep, realm);
             RepresentationToModel.createFederatedIdentities(rep, session, realm, user);
-            RepresentationToModel.createGroups(rep, realm, user);
+            RepresentationToModel.updateGroups(rep, realm, user);
 
             RepresentationToModel.createCredentials(rep, session, realm, user, true);
             adminEvent.operation(OperationType.CREATE).resourcePath(session.getContext().getUri(), user.getId()).representation(rep).success();
@@ -188,16 +188,19 @@ public class UsersResource {
     /**
      * Get representation of the user
      *
-     * @param id User id
+     * @param id User id or user name
      * @return
      */
     @Path("{id}")
     public UserResource user(final @PathParam("id") String id) {
         UserModel user = session.users().getUserById(id, realm);
         if (user == null) {
-            // we do this to make sure somebody can't phish ids
-            if (auth.users().canQuery()) throw new NotFoundException("User not found");
-            else throw new ForbiddenException();
+            user = session.users().getUserByUsername(id, realm);
+            if (user == null) {
+                // we do this to make sure somebody can't phish ids
+                if (auth.users().canQuery()) throw new NotFoundException("User not found");
+                else throw new ForbiddenException();
+            }
         }
         UserResource resource = new UserResource(realm, user, auth, adminEvent);
         ResteasyProviderFactory.getInstance().injectProperties(resource);

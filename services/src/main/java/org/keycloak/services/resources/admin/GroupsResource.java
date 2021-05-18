@@ -74,8 +74,8 @@ public class GroupsResource {
     @NoCache
     @Produces(MediaType.APPLICATION_JSON)
     public Stream<GroupRepresentation> getGroups(@QueryParam("search") String search,
-                                                 @QueryParam("first") Integer firstResult,
-                                                 @QueryParam("max") Integer maxResults,
+                                                 @QueryParam("offset") Integer firstResult,
+                                                 @QueryParam("limit") Integer maxResults,
                                                  @QueryParam("briefRepresentation") @DefaultValue("true") boolean briefRepresentation) {
         auth.groups().requireList();
 
