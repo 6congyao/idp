@@ -416,7 +416,7 @@ public class UsersResource {
     }
 
     @Path("batch")
-    @DELETE
+    @POST
     @NoCache
     @Consumes(MediaType.APPLICATION_JSON)
     public Response operateBatchUsers(final UserBatchRepresentation rep) {

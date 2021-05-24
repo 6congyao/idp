@@ -455,7 +455,7 @@ public class RoleContainerResource extends RoleResource {
     }
 
     @Path("{role-name}/users/batch")
-    @DELETE
+    @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @NoCache
     public Response operateBatchUsersInRole(final @PathParam("role-name") String roleName, UserBatchRepresentation rep) {
