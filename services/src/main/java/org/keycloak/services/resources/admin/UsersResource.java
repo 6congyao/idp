@@ -35,12 +35,14 @@ import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.policy.PasswordPolicyNotMetException;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.idm.UserBatchRepresentation;
 import org.keycloak.services.ErrorResponse;
 import org.keycloak.services.ForbiddenException;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionEvaluator;
 import org.keycloak.services.resources.admin.permissions.UserPermissionEvaluator;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
@@ -52,7 +54,9 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -409,5 +413,30 @@ public class UsersResource {
                     userRep.setAccess(usersEvaluator.getAccess(user));
                     return userRep;
                 });
+    }
+
+    @Path("batch")
+    @DELETE
+    @NoCache
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response operateBatchUsers(final UserBatchRepresentation rep) {
+        // first check if user has manage rights
+        auth.users().requireManage();
+
+        List<String> deletes = rep.getDelete();
+        if (deletes != null) {
+            for (String uid : deletes) {
+                UserModel user = session.users().getUserById(uid, realm);
+                if (user == null) {
+                    user = session.users().getUserByUsername(uid, realm);
+                }
+                if (user != null) {
+                    session.users().removeUser(realm, user);
+                } else {
+                    return ErrorResponse.error(String.format("User %s not found", uid), Response.Status.BAD_REQUEST);
+                }
+            }
+        }
+        return null;
     }
 }

@@ -258,7 +258,6 @@ public class UserResource {
             while (itr.hasNext()) {
                 RoleModel role = itr.next();
                 user.deleteRoleMapping(role);
-                System.out.println(role.getName());
             }
             for (String roleString : realmRoles) {
                 RoleModel role = realm.getRole(roleString.trim());

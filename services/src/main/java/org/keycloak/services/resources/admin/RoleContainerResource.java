@@ -28,11 +28,13 @@ import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleContainerModel;
 import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.ManagementPermissionReference;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.idm.UserBatchRepresentation;
 import org.keycloak.services.ErrorResponse;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionEvaluator;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionManagement;
@@ -450,6 +452,35 @@ public class RoleContainerResource extends RoleResource {
         }
 
         return (int)session.users().getRoleMembersStream(realm, role).count();
+    }
+
+    @Path("{role-name}/users/batch")
+    @DELETE
+    @Consumes(MediaType.APPLICATION_JSON)
+    @NoCache
+    public Response operateBatchUsersInRole(final @PathParam("role-name") String roleName, UserBatchRepresentation rep) {
+        auth.roles().requireManage(roleContainer);
+        
+        RoleModel role = roleContainer.getRole(roleName);
+        if (role == null) {
+            throw new NotFoundException("Could not find role");
+        }
+
+        List<String> deletes = rep.getDelete();
+        if (deletes != null) {
+            for (String uid : deletes) {
+                UserModel user = session.users().getUserById(uid, realm);
+                if (user == null) {
+                    user = session.users().getUserByUsername(uid, realm);
+                }
+                if (user != null) {
+                    user.deleteRoleMapping(role);
+                } else {
+                    return ErrorResponse.error(String.format("User %s not found", uid), Response.Status.BAD_REQUEST);
+                }
+            }
+        }
+        return null;
     }
     
     /**
