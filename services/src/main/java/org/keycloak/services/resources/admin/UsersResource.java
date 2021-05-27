@@ -29,6 +29,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.ModelException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.models.utils.ModelToRepresentation;
@@ -37,12 +38,14 @@ import org.keycloak.policy.PasswordPolicyNotMetException;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.representations.idm.UserBatchRepresentation;
 import org.keycloak.services.ErrorResponse;
+import org.keycloak.services.ErrorResponseException;
 import org.keycloak.services.ForbiddenException;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionEvaluator;
 import org.keycloak.services.resources.admin.permissions.UserPermissionEvaluator;
+import org.keycloak.storage.ReadOnlyException;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
@@ -55,9 +58,11 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -72,6 +77,7 @@ public class UsersResource {
 
     private static final Logger logger = Logger.getLogger(UsersResource.class);
     private static final String SEARCH_ID_PARAMETER = "id:";
+    private static final String DEFAULT_PASSWORD = "123456";
 
     protected RealmModel realm;
 
@@ -437,6 +443,33 @@ public class UsersResource {
                 }
             }
         }
+
+        List<String> resets = rep.getReset();
+        if (resets != null) {
+            for (String uid : resets) {
+                UserModel user = session.users().getUserById(uid, realm);
+                if (user == null) {
+                    user = session.users().getUserByUsername(uid, realm);
+                }
+                if (user != null) {
+                    try {
+                        session.userCredentialManager().updateCredential(realm, user, UserCredentialModel.password(DEFAULT_PASSWORD, false));
+                    } catch (IllegalStateException ise) {
+                        throw new BadRequestException("Resetting to N old passwords is not allowed.");
+                    } catch (ReadOnlyException mre) {
+                        throw new BadRequestException("Can't reset password as account is read only");
+                    } catch (ModelException e) {
+                        logger.warn("Could not update user password.", e);
+                        Properties messages = AdminRoot.getMessages(session, realm, auth.adminAuth().getToken().getLocale());
+                        throw new ErrorResponseException(e.getMessage(), MessageFormat.format(messages.getProperty(e.getMessage(), e.getMessage()), e.getParameters()),
+                            Response.Status.BAD_REQUEST);
+                    }
+                } else {
+                    return ErrorResponse.error(String.format("User %s not found", uid), Response.Status.BAD_REQUEST);
+                }
+            }
+        }
+
         return null;
     }
 }
