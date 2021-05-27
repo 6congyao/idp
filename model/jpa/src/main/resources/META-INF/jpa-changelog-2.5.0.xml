@@ -44,7 +44,7 @@
 
         <modifyDataType tableName="KEYCLOAK_GROUP" columnName="NAME" newDataType="NVARCHAR(255)"/>
 
-        <modifyDataType tableName="USER_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(2000000)"/>
+        <modifyDataType tableName="USER_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <modifyDataType tableName="GROUP_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <modifyDataType tableName="REALM_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <addColumn tableName="COMPONENT_CONFIG">
@@ -88,7 +88,7 @@
 
         <modifyDataType tableName="KEYCLOAK_GROUP" columnName="NAME" newDataType="NVARCHAR(255)"/>
 
-        <modifyDataType tableName="USER_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(2000000)"/>
+        <modifyDataType tableName="USER_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <modifyDataType tableName="GROUP_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <modifyDataType tableName="REALM_ATTRIBUTE" columnName="VALUE" newDataType="NVARCHAR(255)"/>
         <modifyDataType tableName="COMPONENT_CONFIG" columnName="VALUE" newDataType="NVARCHAR(4000)"/>
