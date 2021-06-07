@@ -112,7 +112,7 @@ public class UserInfoEndpoint {
         return issueUserInfo(accessToken);
     }
 
-    @Path("/self")
+    @Path("/full")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @NoCache
