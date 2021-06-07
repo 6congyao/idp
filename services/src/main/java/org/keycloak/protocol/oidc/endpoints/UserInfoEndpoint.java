@@ -40,9 +40,11 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
+import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.services.ErrorResponseException;
 import org.keycloak.services.Urls;
 import org.keycloak.services.clientpolicy.ClientPolicyException;
@@ -59,6 +61,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.OPTIONS;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
@@ -107,6 +110,67 @@ public class UserInfoEndpoint {
     public Response issueUserInfoGet(@Context final HttpHeaders headers) {
         String accessToken = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);
         return issueUserInfo(accessToken);
+    }
+
+    @Path("/self")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @NoCache
+    public UserRepresentation issueUserAttrGet(@Context final HttpHeaders headers) {
+        String tokenString = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);    
+        try {
+            session.clientPolicy().triggerOnEvent(new UserInfoRequestContext(tokenString));
+        } catch (ClientPolicyException cpe) {
+            throw new ErrorResponseException(Errors.INVALID_REQUEST, cpe.getErrorDetail(), Response.Status.BAD_REQUEST);
+        }
+
+        EventBuilder event = new EventBuilder(realm, session, clientConnection)
+                .event(EventType.USER_INFO_REQUEST)
+                .detail(Details.AUTH_METHOD, Details.VALIDATE_ACCESS_TOKEN);
+
+        AccessToken token;
+        ClientModel clientModel;
+        try {
+            TokenVerifier<AccessToken> verifier = TokenVerifier.create(tokenString, AccessToken.class).withDefaultChecks()
+                    .realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
+        
+            SignatureVerifierContext verifierContext = session.getProvider(SignatureProvider.class, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());
+            verifier.verifierContext(verifierContext);
+        
+            token = verifier.verify().getToken();
+        
+            clientModel = realm.getClientByClientId(token.getIssuedFor());
+            if (clientModel == null) {
+                event.error(Errors.CLIENT_NOT_FOUND);
+                throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client not found", Response.Status.BAD_REQUEST);
+            }
+        
+            TokenVerifier.createWithoutSignature(token)
+                    .withChecks(NotBeforeCheck.forModel(clientModel))
+                    .verify();
+        } catch (VerificationException e) {
+            event.error(Errors.INVALID_TOKEN);
+            throw newUnauthorizedErrorResponseException(OAuthErrorException.INVALID_TOKEN, "Token verification failed");
+        }
+        
+        if (!clientModel.getProtocol().equals(OIDCLoginProtocol.LOGIN_PROTOCOL)) {
+            event.error(Errors.INVALID_CLIENT);
+            throw new ErrorResponseException(Errors.INVALID_CLIENT, "Wrong client protocol.", Response.Status.BAD_REQUEST);
+        }
+        
+        session.getContext().setClient(clientModel);
+        
+        event.client(clientModel);
+        
+        if (!clientModel.isEnabled()) {
+            event.error(Errors.CLIENT_DISABLED);
+            throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client disabled", Response.Status.BAD_REQUEST);
+        }
+
+        UserSessionModel userSession = findValidSession(token, event, clientModel);
+        UserModel userModel = userSession.getUser();
+
+        return ModelToRepresentation.toRepresentation(session, realm, userModel);
     }
 
     @Path("/")
