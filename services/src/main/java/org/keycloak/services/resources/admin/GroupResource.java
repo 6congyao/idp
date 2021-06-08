@@ -214,7 +214,7 @@ public class GroupResource {
     public Stream<UserRepresentation> getMembers(@QueryParam("offset") Integer firstResult,
                                                @QueryParam("limit") Integer maxResults,
                                                @QueryParam("briefRepresentation") Boolean briefRepresentation) {
-        this.auth.groups().requireViewMembers(group);
+        // this.auth.groups().requireViewMembers(group);
         
         firstResult = firstResult != null ? firstResult : 0;
         maxResults = maxResults != null ? maxResults : Constants.DEFAULT_MAX_RESULTS;

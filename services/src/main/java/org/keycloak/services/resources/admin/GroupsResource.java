@@ -77,8 +77,8 @@ public class GroupsResource {
                                                  @QueryParam("offset") Integer firstResult,
                                                  @QueryParam("limit") Integer maxResults,
                                                  @QueryParam("briefRepresentation") @DefaultValue("true") boolean briefRepresentation) {
-        auth.groups().requireList();
-
+        // auth.groups().requireList();
+        
         if (Objects.nonNull(search)) {
             return ModelToRepresentation.searchForGroupByName(session, realm, !briefRepresentation, search.trim(), firstResult, maxResults);
         } else if(Objects.nonNull(firstResult) && Objects.nonNull(maxResults)) {
