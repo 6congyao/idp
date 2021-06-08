@@ -109,6 +109,39 @@ public class ModelToRepresentation {
         return sb.toString();
     }
 
+    public static GroupRepresentation toRepresentation(KeycloakSession session, RealmModel realm, GroupModel group, boolean full) {
+        GroupRepresentation rep = new GroupRepresentation();
+        rep.setId(group.getId());
+        rep.setName(group.getName());
+        rep.setPath(buildGroupPath(group));
+        if (!full)
+            return rep;
+        // Role mappings
+        Set<RoleModel> roles = group.getRoleMappingsStream().collect(Collectors.toSet());
+        List<String> realmRoleNames = new ArrayList<>();
+        Map<String, List<String>> clientRoleNames = new HashMap<>();
+        for (RoleModel role : roles) {
+            if (role.getContainer() instanceof RealmModel) {
+                realmRoleNames.add(role.getName());
+            } else {
+                ClientModel client = (ClientModel) role.getContainer();
+                String clientId = client.getClientId();
+                List<String> currentClientRoles = clientRoleNames.computeIfAbsent(clientId, k -> new ArrayList<>());
+                currentClientRoles.add(role.getName());
+            }
+        }
+        rep.setRealmRoles(realmRoleNames);
+        rep.setClientRoles(clientRoleNames);
+
+        List<String> countList = new ArrayList<>();
+        String countStr = String.valueOf(session.users().getGroupMembersStream(realm, group).count());
+        countList.add(countStr);
+        Map<String, List<String>> attributes = group.getAttributes();
+        attributes.put(HYC_ATTRIBUTE_KEY_TOTAL_USERS, countList);
+        rep.setAttributes(attributes);
+        return rep;
+    }
+
     public static GroupRepresentation toRepresentation(GroupModel group, boolean full) {
         GroupRepresentation rep = new GroupRepresentation();
         rep.setId(group.getId());
@@ -137,9 +170,9 @@ public class ModelToRepresentation {
         return rep;
     }
 
-    public static Stream<GroupRepresentation> searchForGroupByName(RealmModel realm, boolean full, String search,
+    public static Stream<GroupRepresentation> searchForGroupByName(KeycloakSession session, RealmModel realm, boolean full, String search,
             Integer first, Integer max) {
-        return realm.searchForGroupByNameStream(search, first, max).map(g -> toGroupHierarchy(g, full));
+        return realm.searchForGroupByNameStream(search, first, max).map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
     public static Stream<GroupRepresentation> searchForGroupByName(UserModel user, boolean full, String search,
@@ -147,14 +180,18 @@ public class ModelToRepresentation {
         return user.getGroupsStream(search, first, max).map(group -> toRepresentation(group, full));
     }
 
-    public static Stream<GroupRepresentation> toGroupHierarchy(RealmModel realm, boolean full, Integer first,
+    public static Stream<GroupRepresentation> toGroupHierarchy(KeycloakSession session, RealmModel realm, boolean full, Integer first,
             Integer max) {
-        return realm.getTopLevelGroupsStream(first, max).map(g -> toGroupHierarchy(g, full));
+        return realm.getTopLevelGroupsStream(first, max).map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
     public static Stream<GroupRepresentation> toGroupHierarchy(UserModel user, boolean full, Integer first,
             Integer max) {
         return user.getGroupsStream(null, first, max).map(group -> toRepresentation(group, full));
+    }
+
+    public static Stream<GroupRepresentation> toGroupHierarchy(KeycloakSession session, RealmModel realm, boolean full) {
+        return realm.getTopLevelGroupsStream().map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
     public static Stream<GroupRepresentation> toGroupHierarchy(RealmModel realm, boolean full) {
@@ -163,6 +200,14 @@ public class ModelToRepresentation {
 
     public static Stream<GroupRepresentation> toGroupHierarchy(UserModel user, boolean full) {
         return user.getGroupsStream().map(group -> toRepresentation(group, full));
+    }
+
+    public static GroupRepresentation toGroupHierarchy(KeycloakSession session, RealmModel realm, GroupModel group, boolean full) {
+        GroupRepresentation rep = toRepresentation(session, realm, group, full);
+        List<GroupRepresentation> subGroups = group.getSubGroupsStream()
+                .map(subGroup -> toGroupHierarchy(subGroup, full)).collect(Collectors.toList());
+        rep.setSubGroups(subGroups);
+        return rep;
     }
 
     public static GroupRepresentation toGroupHierarchy(GroupModel group, boolean full) {

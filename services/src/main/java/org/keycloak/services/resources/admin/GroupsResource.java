@@ -80,11 +80,11 @@ public class GroupsResource {
         auth.groups().requireList();
 
         if (Objects.nonNull(search)) {
-            return ModelToRepresentation.searchForGroupByName(realm, !briefRepresentation, search.trim(), firstResult, maxResults);
+            return ModelToRepresentation.searchForGroupByName(session, realm, !briefRepresentation, search.trim(), firstResult, maxResults);
         } else if(Objects.nonNull(firstResult) && Objects.nonNull(maxResults)) {
-            return ModelToRepresentation.toGroupHierarchy(realm, !briefRepresentation, firstResult, maxResults);
+            return ModelToRepresentation.toGroupHierarchy(session, realm, !briefRepresentation, firstResult, maxResults);
         } else {
-            return ModelToRepresentation.toGroupHierarchy(realm, !briefRepresentation);
+            return ModelToRepresentation.toGroupHierarchy(session, realm, !briefRepresentation);
         }
     }
 

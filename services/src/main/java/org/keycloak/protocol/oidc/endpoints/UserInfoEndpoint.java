@@ -22,6 +22,7 @@ import org.jboss.resteasy.spi.HttpResponse;
 import org.keycloak.OAuthErrorException;
 import org.keycloak.TokenCategory;
 import org.keycloak.TokenVerifier;
+import org.keycloak.authentication.RequiredActionProvider;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.common.VerificationException;
 import org.keycloak.crypto.SignatureProvider;
@@ -36,41 +37,65 @@ import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.ClientSessionContext;
 import org.keycloak.protocol.oidc.TokenManager.NotBeforeCheck;
+import org.keycloak.provider.ProviderFactory;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.ModelDuplicateException;
+import org.keycloak.models.ModelException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserCredentialModel;
+import org.keycloak.models.UserLoginFailureModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.ModelToRepresentation;
+import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.services.ErrorResponseException;
+import org.keycloak.services.ForbiddenException;
 import org.keycloak.services.Urls;
 import org.keycloak.services.clientpolicy.ClientPolicyException;
 import org.keycloak.services.clientpolicy.UserInfoRequestContext;
+import org.keycloak.services.ErrorResponse;
 import org.keycloak.services.managers.AppAuthManager;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.UserSessionCrossDCManager;
 import org.keycloak.services.resources.Cors;
 import org.keycloak.services.util.DefaultClientSessionContext;
 import org.keycloak.services.util.MtlsHoKTokenUtil;
+import org.keycloak.services.validation.Validation;
+import org.keycloak.storage.ReadOnlyException;
+import org.keycloak.userprofile.utils.UserUpdateHelper;
+import org.keycloak.userprofile.validation.AttributeValidationResult;
+import org.keycloak.userprofile.validation.UserProfileValidationResult;
+import org.keycloak.userprofile.validation.ValidationResult;
 import org.keycloak.utils.MediaType;
 
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.OPTIONS;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.keycloak.userprofile.profile.UserProfileContextFactory.forUserResource;
 /**
  * @author pedroigor
  */
@@ -112,67 +137,6 @@ public class UserInfoEndpoint {
         return issueUserInfo(accessToken);
     }
 
-    @Path("/full")
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    @NoCache
-    public UserRepresentation issueUserAttrGet(@Context final HttpHeaders headers) {
-        String tokenString = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);    
-        try {
-            session.clientPolicy().triggerOnEvent(new UserInfoRequestContext(tokenString));
-        } catch (ClientPolicyException cpe) {
-            throw new ErrorResponseException(Errors.INVALID_REQUEST, cpe.getErrorDetail(), Response.Status.BAD_REQUEST);
-        }
-
-        EventBuilder event = new EventBuilder(realm, session, clientConnection)
-                .event(EventType.USER_INFO_REQUEST)
-                .detail(Details.AUTH_METHOD, Details.VALIDATE_ACCESS_TOKEN);
-
-        AccessToken token;
-        ClientModel clientModel;
-        try {
-            TokenVerifier<AccessToken> verifier = TokenVerifier.create(tokenString, AccessToken.class).withDefaultChecks()
-                    .realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
-        
-            SignatureVerifierContext verifierContext = session.getProvider(SignatureProvider.class, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());
-            verifier.verifierContext(verifierContext);
-        
-            token = verifier.verify().getToken();
-        
-            clientModel = realm.getClientByClientId(token.getIssuedFor());
-            if (clientModel == null) {
-                event.error(Errors.CLIENT_NOT_FOUND);
-                throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client not found", Response.Status.BAD_REQUEST);
-            }
-        
-            TokenVerifier.createWithoutSignature(token)
-                    .withChecks(NotBeforeCheck.forModel(clientModel))
-                    .verify();
-        } catch (VerificationException e) {
-            event.error(Errors.INVALID_TOKEN);
-            throw newUnauthorizedErrorResponseException(OAuthErrorException.INVALID_TOKEN, "Token verification failed");
-        }
-        
-        if (!clientModel.getProtocol().equals(OIDCLoginProtocol.LOGIN_PROTOCOL)) {
-            event.error(Errors.INVALID_CLIENT);
-            throw new ErrorResponseException(Errors.INVALID_CLIENT, "Wrong client protocol.", Response.Status.BAD_REQUEST);
-        }
-        
-        session.getContext().setClient(clientModel);
-        
-        event.client(clientModel);
-        
-        if (!clientModel.isEnabled()) {
-            event.error(Errors.CLIENT_DISABLED);
-            throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client disabled", Response.Status.BAD_REQUEST);
-        }
-
-        UserSessionModel userSession = findValidSession(token, event, clientModel);
-        UserModel userModel = userSession.getUser();
-
-        return ModelToRepresentation.toRepresentation(session, realm, userModel);
-    }
-
     @Path("/")
     @POST
     @NoCache
@@ -187,6 +151,99 @@ public class UserInfoEndpoint {
         }
 
         return issueUserInfo(accessToken);
+    }
+
+    @Path("/full")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @NoCache
+    public UserRepresentation issueUserAttrGet(@Context final HttpHeaders headers) {
+        String tokenString = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);    
+        UserModel user = findValidUser(tokenString);
+
+        return ModelToRepresentation.toRepresentation(session, realm, user);
+    }
+
+    @Path("/full")
+    @PUT
+    @Consumes(MediaType.APPLICATION_JSON)
+    @NoCache
+    public Response issueUserAttrPut(@Context final HttpHeaders headers, final UserRepresentation rep) {
+        String tokenString = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);    
+        UserModel user = findValidUser(tokenString);
+
+        try {
+            if (rep.isEnabled() != null && rep.isEnabled()) {
+                UserLoginFailureModel failureModel = session.sessions().getUserLoginFailure(realm, user.getId());
+                if (failureModel != null) {
+                    failureModel.clearFailures();
+                }
+            }
+
+            Response response = validateUserProfile(user, rep, session);
+            if (response != null) {
+                return response;
+            }
+            updateUserFromRep(user, rep, session, true);
+            updateUserRolesFromRep(user, rep, realm);
+            RepresentationToModel.updateGroups(rep, realm, user);
+            RepresentationToModel.createCredentials(rep, session, realm, user, true);
+            // adminEvent.operation(OperationType.UPDATE).resourcePath(session.getContext().getUri()).representation(rep).success();
+
+            if (session.getTransactionManager().isActive()) {
+                session.getTransactionManager().commit();
+            }
+            return Response.noContent().build();
+        } catch (ModelDuplicateException e) {
+            return ErrorResponse.exists("User exists with same username or email");
+        } catch (ReadOnlyException re) {
+            return ErrorResponse.exists("User is read only!");
+        } catch (ModelException me) {
+            return ErrorResponse.error("Could not update user!", Status.BAD_REQUEST);
+        } catch (ForbiddenException fe) {
+            throw fe;
+        } catch (Exception me) { // JPA
+            return ErrorResponse.error("Could not update user!", Status.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Set up a new password for the user.
+     *
+     * @param cred The representation must contain a rawPassword with the plain-text password
+     */
+    @Path("/full/reset-password")
+    @PUT
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void resetPassword(@Context final HttpHeaders headers, CredentialRepresentation cred) {
+        String tokenString = this.appAuthManager.extractAuthorizationHeaderTokenOrReturnNull(headers);    
+        UserModel user = findValidUser(tokenString);
+
+        if (cred == null || cred.getValue() == null) {
+            throw new BadRequestException("No password provided");
+        }
+        if (Validation.isBlank(cred.getValue())) {
+            throw new BadRequestException("Empty password not allowed");
+        }
+        if (!session.userCredentialManager().isValid(realm, user, UserCredentialModel.password(cred.getCredentialData(), false))) {
+            throw new BadRequestException("Incorrect old password");
+        }
+        
+        try {
+            session.userCredentialManager().updateCredential(realm, user, UserCredentialModel.password(cred.getValue(), false));
+        } catch (IllegalStateException ise) {
+            throw new BadRequestException("Resetting to N old passwords is not allowed.");
+        } catch (ReadOnlyException mre) {
+            throw new BadRequestException("Can't reset password as account is read only");
+        } catch (ModelException e) {
+            throw new ErrorResponseException(e.getMessage(), e.getLocalizedMessage(), Status.BAD_REQUEST);
+        }
+        if (cred.isTemporary() != null && cred.isTemporary()) {
+            user.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD);
+        } else {
+            // Remove a potentially existing UPDATE_PASSWORD action when explicitly assigning a non-temporary password.
+            user.removeRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD);
+        }
     }
 
     private ErrorResponseException newUnauthorizedErrorResponseException(String oauthError, String errorMessage) {
@@ -334,7 +391,6 @@ public class UserInfoEndpoint {
         return Cors.add(request, responseBuilder).auth().allowedOrigins(session, clientModel).build();
     }
 
-
     private UserSessionModel findValidSession(AccessToken token, EventBuilder event, ClientModel client) {
         UserSessionModel userSession = new UserSessionCrossDCManager(session).getUserSessionWithClient(realm, token.getSessionState(), false, client.getId());
         UserSessionModel offlineUserSession = null;
@@ -371,5 +427,148 @@ public class UserInfoEndpoint {
             event.error(Errors.INVALID_TOKEN);
             throw newUnauthorizedErrorResponseException(OAuthErrorException.INVALID_TOKEN, "Stale token");
         }
+    }
+
+    public static Response validateUserProfile(UserModel user, UserRepresentation rep, KeycloakSession session) {
+        UserProfileValidationResult result = forUserResource(user, rep, session).validate();
+        if (!result.getErrors().isEmpty()) {
+            for (AttributeValidationResult attrValidation : result.getErrors()) {
+                StringBuilder s = new StringBuilder("Failed to update attribute " + attrValidation.getField() + ": ");
+                for (ValidationResult valResult : attrValidation.getFailedValidations()) {
+                    s.append(valResult.getErrorType() + ", ");
+                }
+            }
+            return ErrorResponse.error("Could not update user! See server log for more details", Response.Status.BAD_REQUEST);
+        } else {
+            return null;
+        }
+    }
+
+    public static void updateUserFromRep(UserModel user, UserRepresentation rep, KeycloakSession session, boolean isUpdateExistingUser) {
+        boolean removeMissingRequiredActions = isUpdateExistingUser;
+        UserUpdateHelper.updateUserResource(session, user, rep, rep.getAttributes() != null);
+
+        if (rep.isEnabled() != null) user.setEnabled(rep.isEnabled());
+        if (rep.isEmailVerified() != null) user.setEmailVerified(rep.isEmailVerified());
+
+        if (rep.getFederationLink() != null) user.setFederationLink(rep.getFederationLink());
+
+        List<String> reqActions = rep.getRequiredActions();
+
+        if (reqActions != null) {
+            Set<String> allActions = new HashSet<>();
+            for (ProviderFactory factory : session.getKeycloakSessionFactory().getProviderFactories(RequiredActionProvider.class)) {
+                allActions.add(factory.getId());
+            }
+            for (String action : allActions) {
+                if (reqActions.contains(action)) {
+                    user.addRequiredAction(action);
+                } else if (removeMissingRequiredActions) {
+                    user.removeRequiredAction(action);
+                }
+            }
+        }
+
+        List<CredentialRepresentation> credentials = rep.getCredentials();
+        if (credentials != null) {
+            for (CredentialRepresentation credential : credentials) {
+                if (CredentialRepresentation.PASSWORD.equals(credential.getType()) && credential.isTemporary() != null
+                        && credential.isTemporary()) {
+                    user.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD);
+                }
+            }
+        }
+    }
+
+    public static void updateUserRolesFromRep(UserModel user, UserRepresentation rep, RealmModel realm) {
+        List<String> realmRoles = rep.getRealmRoles();
+        if (realmRoles != null) {
+            Iterator<RoleModel> itr = user.getRealmRoleMappingsStream().filter(r -> r.getName() != "offline_access" && r.getName() != "uma_authorization").iterator();
+            while (itr.hasNext()) {
+                RoleModel role = itr.next();
+                user.deleteRoleMapping(role);
+            }
+            for (String roleString : realmRoles) {
+                RoleModel role = realm.getRole(roleString.trim());
+                if (role != null) { 
+                    user.grantRole(role);
+                }
+            }
+        }
+
+        Map<String, List<String>> clientRoles = rep.getClientRoles();
+        if (clientRoles != null) {
+            for (Map.Entry<String, List<String>> entry : clientRoles.entrySet()) {
+                ClientModel client = realm.getClientByClientId(entry.getKey());
+                if (client == null) {
+                    break;
+                }
+                for (String roleName : entry.getValue()) {
+                    RoleModel role = client.getRole(roleName);
+                    if (role != null) {
+                        user.grantRole(role);
+                    }
+                }
+            }
+        }
+    }
+
+    private UserModel findValidUser(String tokenString) {
+        try {
+            session.clientPolicy().triggerOnEvent(new UserInfoRequestContext(tokenString));
+        } catch (ClientPolicyException cpe) {
+            throw new ErrorResponseException(Errors.INVALID_REQUEST, cpe.getErrorDetail(), Response.Status.BAD_REQUEST);
+        }
+
+        EventBuilder event = new EventBuilder(realm, session, clientConnection)
+                .event(EventType.USER_INFO_REQUEST)
+                .detail(Details.AUTH_METHOD, Details.VALIDATE_ACCESS_TOKEN);
+
+        AccessToken token;
+        ClientModel clientModel;
+        try {
+            TokenVerifier<AccessToken> verifier = TokenVerifier.create(tokenString, AccessToken.class).withDefaultChecks()
+                    .realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
+        
+            SignatureVerifierContext verifierContext = session.getProvider(SignatureProvider.class, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());
+            verifier.verifierContext(verifierContext);
+        
+            token = verifier.verify().getToken();
+        
+            clientModel = realm.getClientByClientId(token.getIssuedFor());
+            if (clientModel == null) {
+                event.error(Errors.CLIENT_NOT_FOUND);
+                throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client not found", Response.Status.BAD_REQUEST);
+            }
+        
+            TokenVerifier.createWithoutSignature(token)
+                    .withChecks(NotBeforeCheck.forModel(clientModel))
+                    .verify();
+        } catch (VerificationException e) {
+            event.error(Errors.INVALID_TOKEN);
+            throw newUnauthorizedErrorResponseException(OAuthErrorException.INVALID_TOKEN, "Token verification failed");
+        }
+        
+        if (!clientModel.getProtocol().equals(OIDCLoginProtocol.LOGIN_PROTOCOL)) {
+            event.error(Errors.INVALID_CLIENT);
+            throw new ErrorResponseException(Errors.INVALID_CLIENT, "Wrong client protocol.", Response.Status.BAD_REQUEST);
+        }
+        
+        session.getContext().setClient(clientModel);
+        
+        event.client(clientModel);
+        
+        if (!clientModel.isEnabled()) {
+            event.error(Errors.CLIENT_DISABLED);
+            throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "Client disabled", Response.Status.BAD_REQUEST);
+        }
+
+        UserSessionModel userSession = findValidSession(token, event, clientModel);
+        UserModel userModel = userSession.getUser();
+        if (userModel == null) {
+            event.error(Errors.USER_NOT_FOUND);
+            throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "User not found", Response.Status.BAD_REQUEST);
+        }
+        return userModel;
     }
 }
