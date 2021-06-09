@@ -175,6 +175,11 @@ public class ModelToRepresentation {
         return realm.searchForGroupByNameStream(search, first, max).map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
+    public static Stream<GroupRepresentation> searchForExGroupByName(KeycloakSession session, RealmModel realm, boolean full, String search,
+            Integer first, Integer max) {
+        return realm.searchForGroupByNameStream(search, first, max).filter(g -> g.getName().startsWith("hycgex-")).map(g -> toGroupHierarchy(session, realm, g, full));
+    }
+
     public static Stream<GroupRepresentation> searchForGroupByName(UserModel user, boolean full, String search,
             Integer first, Integer max) {
         return user.getGroupsStream(search, first, max).map(group -> toRepresentation(group, full));
@@ -185,6 +190,11 @@ public class ModelToRepresentation {
         return realm.getTopLevelGroupsStream(first, max).map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
+    public static Stream<GroupRepresentation> toExGroupHierarchy(KeycloakSession session, RealmModel realm, boolean full, Integer first,
+            Integer max) {
+        return realm.getTopLevelGroupsStream(first, max).filter(g -> g.getName().startsWith("hycgex-")).map(g -> toGroupHierarchy(session, realm, g, full));
+    }
+
     public static Stream<GroupRepresentation> toGroupHierarchy(UserModel user, boolean full, Integer first,
             Integer max) {
         return user.getGroupsStream(null, first, max).map(group -> toRepresentation(group, full));
@@ -192,6 +202,10 @@ public class ModelToRepresentation {
 
     public static Stream<GroupRepresentation> toGroupHierarchy(KeycloakSession session, RealmModel realm, boolean full) {
         return realm.getTopLevelGroupsStream().map(g -> toGroupHierarchy(session, realm, g, full));
+    }
+
+    public static Stream<GroupRepresentation> toExGroupHierarchy(KeycloakSession session, RealmModel realm, boolean full) {
+        return realm.getTopLevelGroupsStream().filter(g -> g.getName().startsWith("hycgex-")).map(g -> toGroupHierarchy(session, realm, g, full));
     }
 
     public static Stream<GroupRepresentation> toGroupHierarchy(RealmModel realm, boolean full) {

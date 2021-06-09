@@ -89,6 +89,30 @@ public class GroupsResource {
     }
 
     /**
+     * Get hyc ex group hierarchy.  Only name and ids are returned.
+     *
+     * @return
+     */
+    @Path("ex")
+    @GET
+    @NoCache
+    @Produces(MediaType.APPLICATION_JSON)
+    public Stream<GroupRepresentation> getExGroups(@QueryParam("search") String search,
+                                                   @QueryParam("offset") Integer firstResult,
+                                                   @QueryParam("limit") Integer maxResults,
+                                                   @QueryParam("briefRepresentation") @DefaultValue("true") boolean briefRepresentation) {
+        // auth.groups().requireList();
+        
+        if (Objects.nonNull(search)) {
+            return ModelToRepresentation.searchForExGroupByName(session, realm, !briefRepresentation, search.trim(), firstResult, maxResults);
+        } else if(Objects.nonNull(firstResult) && Objects.nonNull(maxResults)) {
+            return ModelToRepresentation.toExGroupHierarchy(session, realm, !briefRepresentation, firstResult, maxResults);
+        } else {
+            return ModelToRepresentation.toExGroupHierarchy(session, realm, !briefRepresentation);
+        }
+    }
+
+    /**
      * Does not expand hierarchy.  Subgroups will not be set.
      *
      * @param id
