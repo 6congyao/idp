@@ -36,6 +36,7 @@ import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.policy.PasswordPolicyNotMetException;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserBatchRepresentation;
 import org.keycloak.services.ErrorResponse;
 import org.keycloak.services.ErrorResponseException;
@@ -59,6 +60,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,7 @@ public class UsersResource {
     private static final Logger logger = Logger.getLogger(UsersResource.class);
     private static final String SEARCH_ID_PARAMETER = "id:";
     private static final String DEFAULT_PASSWORD = "123456";
+    private static final String DEFAULT_BATCH_CREATE_SEPARATOR = ",";
 
     protected RealmModel realm;
 
@@ -429,6 +432,50 @@ public class UsersResource {
         // first check if user has manage rights
         auth.users().requireManage();
 
+        List<String> creates = rep.getCreate();
+        if (creates != null) {
+            for (String userCSV : creates) {
+                UserRepresentation userRep = getUserRepWithCSV(userCSV);
+
+                try {
+                    Response response = UserResource.validateUserProfile(null, userRep, session);
+                    if (response != null) {
+                        return response;
+                    }
+        
+                    UserModel user = session.users().addUser(realm, userRep.getUsername());
+        
+                    UserResource.updateUserFromRep(user, userRep, session, false);
+                    UserResource.updateUserRolesFromRep(user, userRep, realm);
+                    RepresentationToModel.createFederatedIdentities(userRep, session, realm, user);
+                    RepresentationToModel.updateGroups(userRep, realm, user);
+        
+                    RepresentationToModel.createCredentials(userRep, session, realm, user, true);
+                    adminEvent.operation(OperationType.CREATE).resourcePath(session.getContext().getUri(), user.getId()).representation(userRep).success();
+        
+                } catch (ModelDuplicateException e) {
+                    if (session.getTransactionManager().isActive()) {
+                        session.getTransactionManager().setRollbackOnly();
+                    }
+                    return ErrorResponse.exists("User exists with same username or email:" + userRep.getUsername());
+                } catch (PasswordPolicyNotMetException e) {
+                    if (session.getTransactionManager().isActive()) {
+                        session.getTransactionManager().setRollbackOnly();
+                    }
+                    return ErrorResponse.error("Password policy not met", Response.Status.BAD_REQUEST);
+                } catch (ModelException me){
+                    if (session.getTransactionManager().isActive()) {
+                        session.getTransactionManager().setRollbackOnly();
+                    }
+                    logger.warn("Could not create user", me);
+                    return ErrorResponse.error("Could not create user:" + userRep.getUsername(), Response.Status.BAD_REQUEST);
+                }
+            }
+            if (session.getTransactionManager().isActive()) {
+                session.getTransactionManager().commit();
+            }
+        }
+
         List<String> deletes = rep.getDelete();
         if (deletes != null) {
             for (String uid : deletes) {
@@ -471,5 +518,38 @@ public class UsersResource {
         }
 
         return null;
+    }
+
+    private UserRepresentation getUserRepWithCSV(String csv) {
+        UserRepresentation rep = new UserRepresentation();
+
+        String[] userSegments = csv.split(DEFAULT_BATCH_CREATE_SEPARATOR);
+        rep.setUsername(userSegments[0].trim());
+        rep.setFirstName(userSegments[1].trim());
+
+        List<String> groups = new ArrayList<>();
+        groups.add(userSegments[2].trim());
+        rep.setGroups(groups);
+
+        List<String> roles = new ArrayList<>();
+        for (int i = 3; i < userSegments.length; i++) {
+            if (!ObjectUtil.isBlank(userSegments[i])) {
+                roles.add(userSegments[i].trim());
+            }
+        }
+        // List<String> roles = Arrays.asList(Arrays.copyOfRange(userSegments, 3, userSegments.length));
+        rep.setRealmRoles(roles);
+
+        rep.setEnabled(true);
+
+        CredentialRepresentation cr = new CredentialRepresentation();
+        cr.setType("password");
+        cr.setValue(DEFAULT_PASSWORD);
+        cr.setTemporary(false);
+        List<CredentialRepresentation> crs = new ArrayList<>();
+        crs.add(cr);
+
+        rep.setCredentials(crs);
+        return rep;
     }
 }
