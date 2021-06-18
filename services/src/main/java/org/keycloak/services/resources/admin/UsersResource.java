@@ -436,7 +436,9 @@ public class UsersResource {
         if (creates != null) {
             for (String userCSV : creates) {
                 UserRepresentation userRep = getUserRepWithCSV(userCSV);
-
+                if (userRep == null) {
+                    continue;
+                }
                 try {
                     Response response = UserResource.validateUserProfile(null, userRep, session);
                     if (response != null) {
@@ -523,14 +525,22 @@ public class UsersResource {
     private UserRepresentation getUserRepWithCSV(String csv) {
         UserRepresentation rep = new UserRepresentation();
 
-        String[] userSegments = csv.split(DEFAULT_BATCH_CREATE_SEPARATOR);
+        String[] userSegments = csv.split(DEFAULT_BATCH_CREATE_SEPARATOR, -1);
+        if (ObjectUtil.isBlank(userSegments[0])) {
+            return null;
+        }
         rep.setUsername(userSegments[0].trim());
-        rep.setFirstName(userSegments[1].trim());
 
-        List<String> groups = new ArrayList<>();
-        groups.add(userSegments[2].trim());
-        rep.setGroups(groups);
+        if (!ObjectUtil.isBlank(userSegments[1])) {
+            rep.setFirstName(userSegments[1].trim());
+        }
 
+        if (!ObjectUtil.isBlank(userSegments[2])) {
+            List<String> groups = new ArrayList<>();
+            groups.add(userSegments[2].trim());
+            rep.setGroups(groups);
+        }
+        
         List<String> roles = new ArrayList<>();
         for (int i = 3; i < userSegments.length; i++) {
             if (!ObjectUtil.isBlank(userSegments[i])) {
