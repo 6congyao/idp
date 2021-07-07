@@ -207,6 +207,15 @@ public class UserInfoEndpoint {
         }
     }
 
+    @Path("full/unbinding")
+    @PUT
+    @NoCache
+    public Response unbinding(@Context final HttpHeaders headers) {
+        UserRepresentation rep = new UserRepresentation();
+        rep.setEmail("");
+        return issueUserAttrPut(headers, rep);
+    }
+    
     /**
      * Set up a new password for the user.
      *
