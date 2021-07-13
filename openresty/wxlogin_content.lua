@@ -32,7 +32,7 @@ end
 local uname = openid.."@hyc.com"
 local upass = base64.encode_base64url(uname)
 
-local res, err = httpc:request_uri("http://172.16.0.4:8080/auth/realms/hyc/protocol/openid-connect/token", {
+local res, err = httpc:request_uri("http://{HOST}:{PORT}/auth/realms/hyc/protocol/openid-connect/token", {
     method = "POST",
     body = "client_id=hyc-wmp-console&grant_type=password&username="..uname.."&password="..upass,
     headers = {

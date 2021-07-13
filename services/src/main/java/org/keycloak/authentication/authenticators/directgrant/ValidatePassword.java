@@ -46,9 +46,10 @@ public class ValidatePassword extends AbstractDirectGrantAuthenticator {
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         String password = retrievePassword(context);
+        String username = retrieveUsername(context);
         String email = context.getUser().getEmail();
 
-        if (email != null && password != null) {
+        if (password != null && email != null && username.equalsIgnoreCase(email)) {
             if (new String(Base64.getUrlDecoder().decode(password)).equalsIgnoreCase(email)) {
                 context.success();
                 return;
@@ -126,5 +127,10 @@ public class ValidatePassword extends AbstractDirectGrantAuthenticator {
     protected String retrievePassword(AuthenticationFlowContext context) {
         MultivaluedMap<String, String> inputData = context.getHttpRequest().getDecodedFormParameters();
         return inputData.getFirst(CredentialRepresentation.PASSWORD);
+    }
+
+    protected String retrieveUsername(AuthenticationFlowContext context) {
+        MultivaluedMap<String, String> inputData = context.getHttpRequest().getDecodedFormParameters();
+        return inputData.getFirst(UserModel.USERNAME);
     }
 }
