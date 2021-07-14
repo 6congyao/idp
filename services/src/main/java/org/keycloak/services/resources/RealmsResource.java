@@ -339,14 +339,28 @@ public class RealmsResource {
             }
             return false;
         }).map(u -> ModelToRepresentation.toRepresentation(session, realm, u)
-        ).collect(Collectors.toMap(e -> String.valueOf(e.getGroups().get(0)), e -> {
+        ).collect(Collectors.toMap(e -> String.valueOf(e.getGroups().get(0)).split("|")[0], e -> {
             ArrayList<String> list = new ArrayList<>();
-            list.add(e.getAttributes().get("openid").get(0));
+            List<String> oids = e.getAttributes().get("openid");
+            if (oids != null) {
+                list.add(oids.get(0));
+            }
             return list;
         }, (oldList, newList) -> {
             oldList.addAll(newList);
             return oldList;
         }));
+    }
+
+    @GET
+    @Path("{realm}/groups")
+    @NoCache
+    @Produces(MediaType.APPLICATION_JSON)
+    public Stream<GroupRepresentation> getGroups(final @PathParam("realm") String name) {
+        RealmModel realm = init(name);
+        checkSsl(realm);
+
+        return ModelToRepresentation.toGroupHierarchy(session, realm, false);
     }
 
     @GET

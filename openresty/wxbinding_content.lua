@@ -44,7 +44,7 @@ if res.status == 200 then
     local reqbody = {
         email = email,
         attributes = {
-          openid = email:split_lite("@")
+          openid = email:split_lite("@")[1]
         }
     }
     local token = "Bearer "..json.decode(res.body).access_token
