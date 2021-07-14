@@ -17,18 +17,20 @@
 package org.keycloak.services.resources;
 
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.annotations.cache.NoCache;
 import org.jboss.resteasy.spi.HttpRequest;
 import org.jboss.resteasy.spi.ResteasyProviderFactory;
 import org.keycloak.OAuthErrorException;
 import org.keycloak.authorization.AuthorizationProvider;
 import org.keycloak.authorization.AuthorizationService;
 import org.keycloak.common.ClientConnection;
-import org.keycloak.common.Profile;
 import org.keycloak.common.util.KeycloakUriBuilder;
+import org.keycloak.common.util.ObjectUtil;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.LoginProtocolFactory;
 import org.keycloak.services.CorsErrorResponseException;
@@ -38,16 +40,17 @@ import org.keycloak.services.resource.RealmResourceProvider;
 import org.keycloak.services.resources.account.AccountLoader;
 import org.keycloak.services.util.CacheControlUtil;
 import org.keycloak.services.util.ResolveRelative;
-import org.keycloak.utils.MediaTypeMatcher;
-import org.keycloak.utils.ProfileHelper;
 import org.keycloak.wellknown.WellKnownProvider;
+import org.keycloak.representations.idm.GroupRepresentation;
 
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.OPTIONS;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -55,6 +58,11 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
@@ -289,6 +297,81 @@ public class RealmsResource {
         }
 
         throw new NotFoundException();
+    }
+
+    /**
+     * Get openids
+     *
+     * Returns a set of openids, filtered according to query parameters
+     *
+     * @param groups A String contained in groups
+     * @param roles A String contained in roles
+     * @return a non-null map of openids
+     */
+    @GET
+    @Path("{realm}/openid")
+    @NoCache
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, List<String>> getOpenID(final @PathParam("realm") String name,
+                                @QueryParam("groups") String groups,
+                                @QueryParam("roles") @DefaultValue("hycr_operator,hycr_programmer") String roles) {
+        RealmModel realm = init(name);
+        checkSsl(realm);
+
+        String[] gSet = groups.split(",");
+        String[] rSet = roles.split(",");
+
+        return realm.getTopLevelGroupsStream().filter(g -> {
+            for (String gStr : gSet) {
+                if (g.getName().contains(gStr.trim())) {
+                    return true;
+                }
+            }
+            return false;
+        }).flatMap(g -> 
+            session.users().getGroupMembersStream(realm, g)
+        ).filter(u -> !ObjectUtil.isBlank(u.getEmail())
+        ).filter(u -> {
+            for (String rStr : rSet) {
+                if (u.getRealmRoleMappingsStream().anyMatch(r -> r.getName().equalsIgnoreCase(rStr.trim()))) {
+                    return true;
+                }
+            }
+            return false;
+        }).map(u -> ModelToRepresentation.toRepresentation(session, realm, u)
+        ).collect(Collectors.toMap(e -> String.valueOf(e.getGroups().get(0)).split("|")[0], e -> {
+            ArrayList<String> list = new ArrayList<>();
+            List<String> oids = e.getAttributes().get("openid");
+            if (oids != null) {
+                list.add(oids.get(0));
+            }
+            return list;
+        }, (oldList, newList) -> {
+            oldList.addAll(newList);
+            return oldList;
+        }));
+    }
+
+    @GET
+    @Path("{realm}/groups")
+    @NoCache
+    @Produces(MediaType.APPLICATION_JSON)
+    public Stream<GroupRepresentation> getGroups(final @PathParam("realm") String name) {
+        RealmModel realm = init(name);
+        checkSsl(realm);
+
+        return ModelToRepresentation.toGroupHierarchy(session, realm, false);
+    }
+
+    @GET
+    @Path("{realm}/groups/ex")
+    @NoCache
+    @Produces(MediaType.APPLICATION_JSON)
+    public Stream<GroupRepresentation> getExGroups(final @PathParam("realm") String name) {
+        RealmModel realm = init(name);
+        checkSsl(realm);
+
+        return ModelToRepresentation.toExGroupHierarchy(session, realm, false);
     }
 
     private void checkSsl(RealmModel realm) {

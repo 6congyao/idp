@@ -153,7 +153,7 @@ public class UserInfoEndpoint {
         return issueUserInfo(accessToken);
     }
 
-    @Path("/full")
+    @Path("full")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @NoCache
@@ -164,7 +164,7 @@ public class UserInfoEndpoint {
         return ModelToRepresentation.toRepresentation(session, realm, user);
     }
 
-    @Path("/full")
+    @Path("full")
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
     @NoCache
@@ -207,12 +207,21 @@ public class UserInfoEndpoint {
         }
     }
 
+    @Path("full/unbinding")
+    @PUT
+    @NoCache
+    public Response unbinding(@Context final HttpHeaders headers) {
+        UserRepresentation rep = new UserRepresentation();
+        rep.setEmail("");
+        return issueUserAttrPut(headers, rep);
+    }
+    
     /**
      * Set up a new password for the user.
      *
      * @param cred The representation must contain a rawPassword with the plain-text password
      */
-    @Path("/full/reset-password")
+    @Path("full/reset-password")
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
     public void resetPassword(@Context final HttpHeaders headers, CredentialRepresentation cred) {
@@ -446,7 +455,8 @@ public class UserInfoEndpoint {
 
     public static void updateUserFromRep(UserModel user, UserRepresentation rep, KeycloakSession session, boolean isUpdateExistingUser) {
         boolean removeMissingRequiredActions = isUpdateExistingUser;
-        UserUpdateHelper.updateUserResource(session, user, rep, rep.getAttributes() != null);
+        // UserUpdateHelper.updateUserResource(session, user, rep, rep.getAttributes() != null);
+        UserUpdateHelper.updateUserResource(session, user, rep, false);
 
         if (rep.isEnabled() != null) user.setEnabled(rep.isEnabled());
         if (rep.isEmailVerified() != null) user.setEmailVerified(rep.isEmailVerified());
