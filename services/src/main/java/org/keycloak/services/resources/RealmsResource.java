@@ -339,7 +339,7 @@ public class RealmsResource {
             }
             return false;
         }).map(u -> ModelToRepresentation.toRepresentation(session, realm, u)
-        ).collect(Collectors.toMap(e -> String.valueOf(e.getGroups().get(0)).split("|")[0], e -> {
+        ).collect(Collectors.toMap(e -> String.valueOf(e.getGroups().get(0)).split("\\|")[0], e -> {
             ArrayList<String> list = new ArrayList<>();
             List<String> oids = e.getAttributes().get("openid");
             if (oids != null) {
