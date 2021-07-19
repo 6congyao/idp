@@ -3,20 +3,20 @@ local http = require "resty.http"
 local base64 = require "ngx.base64"
 
 local hyc_role_mapping = {
-        hycr_operator = {"/process/project/", "/process/order/", "/process/workorder/", "/process/detail/", "/process/reply/", "/drawing/detailWithProc/", "/drawing/queryByPage", "/deploy/"}, 
+        hycr_operator = {"/process/project/", "/process/order/", "/process/workorder/", "/process/detail/", "/process/reply/", "/drawing/detailWithProc/", "/drawing/queryByPage", "/deploy/", "/edgeNode/"}, 
         hycr_programmer = {"/program/", "/drawing/query", "/drawing/detail", "/process/queryMyProcess", "/process/detail/", "/process/getVersions/", "/process/save", "/dict/"}, 
         hycr_auditor = {"/process/queryByPage", "/drawing/queryByPage", "/process/detail/", "/drawing/detailWithProc/", "/drawing/detail/", "/process/audit", "/distribute/"}, 
-        hycr_deployer = {"/deploy/", "/drawing/detailWithProc/", "/drawing/queryByPage", "/process/detail/"}, 
+        hycr_deployer = {"/deploy/", "/drawing/detailWithProc/", "/drawing/queryByPage", "/process/detail/", "/edgeNode/"}, 
         hycr_producer = {"/process/workorder/", "/drawing/detailWithProc/", "/process/detail/", "/process/update/", "/process/order/"}, 
         hycr_planner = {"/process/project/", "/process/reply/", "/process/workorder/", "/drawing/detailWithProc/", "/process/order/", "/process/detail/"}
         }
 local hycex_role_mapping = {
-        hycr_operator = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/deploy/query"}, 
+        hycr_operator = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/deploy/query", "/edgeNode/"}, 
         hycr_programmer = {"/drawing/query", "/drawing/detailWithProc/", "/process/detail/", "/drawing/detail/", "/process/queryMyProcess", "/program/", "/process/getVersions/", "/process/save", "/dict/"}, 
-        hycr_deployer = {"/deploy/", "/drawing/detailWithProc/", "/process/detail/"}, 
+        hycr_deployer = {"/deploy/", "/drawing/detailWithProc/", "/process/detail/", "/edgeNode/"}, 
         hycr_producer = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/process/update/", "/deploy/query"}
         }
-local hyc_uri_black_section = {"/process/", "/drawing/", "/deploy/", "/program/", "/distribute/", "/dict/"}
+local hyc_uri_black_section = {"/process/", "/drawing/", "/deploy/", "/program/", "/distribute/", "/dict/", "/edgeNode/"}
 
 function is_inblack(uri, tab)
     for i, v in ipairs(tab) do

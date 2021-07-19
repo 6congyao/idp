@@ -486,7 +486,10 @@ public class UsersResource {
                     user = session.users().getUserByUsername(uid, realm);
                 }
                 if (user != null) {
-                    session.users().removeUser(realm, user);
+                    boolean removed = session.users().removeUser(realm, user);
+                    if (removed) {
+                        adminEvent.operation(OperationType.DELETE).resourcePath(session.getContext().getUri()).success();
+                    }
                 } else {
                     return ErrorResponse.error(String.format("User %s not found", uid), Response.Status.BAD_REQUEST);
                 }
@@ -503,6 +506,7 @@ public class UsersResource {
                 if (user != null) {
                     try {
                         session.userCredentialManager().updateCredential(realm, user, UserCredentialModel.password(DEFAULT_PASSWORD, false));
+                        adminEvent.operation(OperationType.ACTION).resourcePath(session.getContext().getUri()).success();
                     } catch (IllegalStateException ise) {
                         throw new BadRequestException("Resetting to N old passwords is not allowed.");
                     } catch (ReadOnlyException mre) {
