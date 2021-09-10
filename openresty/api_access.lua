@@ -11,10 +11,10 @@ local hyc_role_mapping = {
         hycr_planner = {"/process/project/", "/process/reply/", "/process/workorder/", "/drawing/detailWithProc/", "/process/order/", "/process/detail/"}
         }
 local hycex_role_mapping = {
-        hycr_operator = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/deploy/query", "/deploy/delete", "/edgeNode/getInnerEdges", "/edgeNode/detail/", "/edgeNode/programDetail", "/retrieval/"}, 
-        hycr_programmer = {"/drawing/query", "/drawing/detailWithProc/", "/process/detail/", "/drawing/detail/", "/process/queryMyProcess", "/program/", "/process/getVersions/", "/process/save", "/dict/"}, 
+        hycr_operator = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/edgeNode/getInnerEdges", "/edgeNode/detail/", "/edgeNode/programDetail", "/retrieval/"}, 
+        hycr_programmer = {"/drawing/queryPrDrawing", "/drawing/queryMyDrawing", "/drawing/detailWithProc/", "/process/detail/", "/drawing/detail/", "/process/queryMyProcess", "/program/", "/process/getVersions/", "/process/save", "/dict/"}, 
         hycr_deployer = {"/deploy/", "/drawing/detailWithProc/", "/process/detail/", "/edgeNode/getInnerEdges", "/edgeNode/detail/", "/edgeNode/programDetail"}, 
-        hycr_producer = {"/process/order/", "/drawing/detailWithProc/", "/process/detail/", "/process/update/", "/deploy/query"}
+        hycr_producer = {"/drawing/detailWithProc/", "/process/detail/", "/process/update/", "/process/order/"}
         }
 local hyc_uri_black_section = {"/process/", "/drawing/", "/deploy/", "/program/", "/distribute/", "/dict/", "/edgeNode/", "/retrieval/"}
 
